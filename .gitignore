@@ -1,0 +1,26 @@
+# Build artefacts
+/target
+
+# Personal scratch / reference files
+/refs
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local env / secrets (none in this repo today, but cheap insurance)
+.env
+.env.local
+
+# Profiling output
+*.profraw
+perf.data
+perf.data.old
+flamegraph.svg
