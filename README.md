@@ -52,6 +52,16 @@ Every command prints a header line followed by the result:
 
 `read` rewrites `[`text`](%2Fowner%2Frepo%2Fpath)` references to absolute `https://github.com/owner/repo/path` URLs and emits any embedded Graphviz diagrams after their section as fenced `dot` code blocks.
 
+## Claude Code skill
+
+A ready-to-install Claude Code skill ships in [`skill/codewiki/`](./skill/codewiki/SKILL.md) so Claude knows when to reach for `codewiki` automatically. Install:
+
+```bash
+cp -r skill/codewiki ~/.claude/skills/
+```
+
+(or symlink `skill/codewiki` to `~/.claude/skills/codewiki` if you want to track upstream changes.)
+
 ## Testing
 
 ```bash
