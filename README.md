@@ -12,8 +12,7 @@ Built for LLM coding agents and humans. Outputs Markdown to stdout, with GitHub 
 ### Homebrew (macOS arm64)
 
 ```bash
-brew tap aeroxy/codewiki-cli https://github.com/aeroxy/codewiki-cli
-brew install codewiki-cli
+brew install aeroxy/tap/codewiki-cli
 ```
 
 ### Cargo
