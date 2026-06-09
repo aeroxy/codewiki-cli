@@ -48,6 +48,10 @@ A 6-hour disk cache for the build label / session id (`~/Library/Caches/codewiki
 
 No authentication required. Public GitHub repos only (Code Wiki itself doesn't yet support private repos).
 
+### TLS
+
+TLS certificate verification is **disabled by default**. `codewiki` is built to run inside monitored agent sandboxes whose TLS-intercepting proxies present certificates that don't chain to a trusted root — strict verification would otherwise make every request fail with an opaque error. Set `CODEWIKI_TLS_VERIFY=1` (or `true`/`yes`) to restore strict certificate checking.
+
 ## Output format
 
 Every command prints a header line followed by the result:

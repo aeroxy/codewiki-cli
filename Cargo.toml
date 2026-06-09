@@ -1,6 +1,6 @@
 [package]
 name = "codewiki-cli"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "CLI for Google Code Wiki — query GitHub repo wikis (structure, full markdown, Q&A) without a browser. Built for LLM coding agents and humans."
 authors = ["Aero <aero.windwalker@gmail.com>"]

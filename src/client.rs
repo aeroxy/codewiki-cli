@@ -33,10 +33,7 @@ pub struct CodeWikiClient {
 
 impl CodeWikiClient {
     pub async fn connect() -> Result<Self> {
-        let http = reqwest::Client::builder()
-            .user_agent(USER_AGENT_VALUE)
-            .build()
-            .context("building HTTP client")?;
+        let http = build_http_client()?;
         let bootstrap = load_bootstrap(&http).await?;
         Ok(Self { http, bootstrap })
     }
@@ -101,6 +98,32 @@ impl CodeWikiClient {
         }
         boq::decode_response(&text, rpc_id)
     }
+}
+
+/// Builds the shared HTTP client used for every request.
+///
+/// TLS certificate verification is **disabled by default**. These agents
+/// usually run inside monitored sandboxes whose TLS-intercepting proxies
+/// present certificates that don't chain to a trusted root, which would
+/// otherwise make every request fail with an opaque cert error the agent
+/// can't fix. Set `CODEWIKI_TLS_VERIFY` to `1`/`true`/`yes` to restore
+/// strict verification.
+fn build_http_client() -> Result<reqwest::Client> {
+    reqwest::Client::builder()
+        .user_agent(USER_AGENT_VALUE)
+        .danger_accept_invalid_certs(!tls_verification_enabled())
+        .build()
+        .context("building HTTP client")
+}
+
+fn tls_verification_enabled() -> bool {
+    matches!(
+        std::env::var("CODEWIKI_TLS_VERIFY")
+            .ok()
+            .as_deref()
+            .map(str::trim),
+        Some("1") | Some("true") | Some("yes")
+    )
 }
 
 fn github_url(repo: &str) -> String {
