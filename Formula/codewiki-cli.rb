@@ -1,7 +1,7 @@
 class CodewikiCli < Formula
   desc "Query GitHub repository wikis via Google Code Wiki from the terminal"
   homepage "https://github.com/aeroxy/codewiki-cli"
-  version "0.1.0"
+  version "0.1.1"
   license "MIT"
 
   on_macos do
