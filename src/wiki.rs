@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 use std::fmt::Write;
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 const GITHUB_PREFIX: &str = "https://github.com";
 
@@ -15,6 +17,11 @@ pub struct Section {
     pub level: u8,
     pub markdown: String,
     pub diagrams: Vec<String>,
+}
+
+pub struct SplitFile {
+    pub path: PathBuf,
+    pub content: String,
 }
 
 pub fn parse(payload: &Value) -> Result<Wiki> {
@@ -194,6 +201,127 @@ fn rewrite_target(target: &str) -> String {
     }
 }
 
+pub fn sanitize_filename(title: &str) -> String {
+    let mut sanitized = String::with_capacity(title.len());
+    for c in title.chars() {
+        match c {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-' | '.' => sanitized.push(c),
+            ' ' => sanitized.push('_'),
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => {
+                sanitized.push('_');
+            }
+            _ if c.is_alphanumeric() => sanitized.push(c),
+            _ => {}
+        }
+    }
+
+    let mut tidy = String::new();
+    let mut last_was_underscore = false;
+    for c in sanitized.chars() {
+        if c == '_' {
+            if !last_was_underscore {
+                tidy.push('_');
+                last_was_underscore = true;
+            }
+        } else {
+            tidy.push(c);
+            last_was_underscore = false;
+        }
+    }
+
+    let trimmed = tidy.trim_matches(|c| c == '_' || c == '-' || c == '.');
+    if trimmed.is_empty() {
+        "section".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+pub fn split_by_depth(wiki: &Wiki, depth: usize) -> Vec<SplitFile> {
+    let depth = depth.max(1);
+    let mut file_map: HashMap<PathBuf, String> = HashMap::new();
+    let mut current_hierarchy: Vec<String> = vec![String::new(); 16];
+
+    for s in &wiki.sections {
+        let level = s.level as usize;
+        if level == 0 {
+            continue;
+        }
+
+        if level < current_hierarchy.len() {
+            current_hierarchy[level] = sanitize_filename(&s.title);
+            for i in (level + 1)..current_hierarchy.len() {
+                current_hierarchy[i].clear();
+            }
+        }
+
+        let relative_path = if level < depth {
+            if level == 1 {
+                PathBuf::from("README.md")
+            } else {
+                let mut dir = PathBuf::new();
+                for i in 2..=level {
+                    let segment = if current_hierarchy[i].is_empty() {
+                        "section"
+                    } else {
+                        &current_hierarchy[i]
+                    };
+                    dir.push(segment);
+                }
+                dir.join("README.md")
+            }
+        } else {
+            // level >= depth
+            let mut dir = PathBuf::new();
+            for i in 2..depth {
+                let segment = if current_hierarchy[i].is_empty() {
+                    "section"
+                } else {
+                    &current_hierarchy[i]
+                };
+                dir.push(segment);
+            }
+            let file_name = if depth == 1 {
+                let base = if current_hierarchy[1].is_empty() {
+                    "README"
+                } else {
+                    &current_hierarchy[1]
+                };
+                format!("{}.md", base)
+            } else {
+                let base = if current_hierarchy[depth].is_empty() {
+                    "section"
+                } else {
+                    &current_hierarchy[depth]
+                };
+                format!("{}.md", base)
+            };
+            dir.join(file_name)
+        };
+
+        let content = file_map.entry(relative_path).or_default();
+
+        let hashes = "#".repeat(s.level.clamp(1, 6) as usize);
+        let _ = writeln!(content, "{hashes} {}\n", s.title);
+        let body = resolve_links(&s.markdown);
+        content.push_str(&body);
+        if !content.ends_with('\n') {
+            content.push('\n');
+        }
+        for dot in &s.diagrams {
+            let _ = writeln!(content, "\n```dot\n{}\n```\n", dot.trim());
+        }
+        content.push('\n');
+    }
+
+    let mut files: Vec<SplitFile> = file_map
+        .into_iter()
+        .map(|(path, content)| SplitFile { path, content })
+        .collect();
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    files
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -273,5 +401,31 @@ mod tests {
             rewrite_target("%2Fowner%2Frepo%2Ffile.rs"),
             "https://github.com/owner/repo/file.rs"
         );
+    }
+
+    #[test]
+    fn test_sanitize_filename() {
+        assert_eq!(sanitize_filename("Introduction to CLI"), "Introduction_to_CLI");
+        assert_eq!(sanitize_filename("FAQ & Troubleshooting?"), "FAQ_Troubleshooting");
+        assert_eq!(sanitize_filename("../../etc/passwd"), "etc_passwd");
+        assert_eq!(sanitize_filename(""), "section");
+        assert_eq!(sanitize_filename("Введение в проект"), "Введение_в_проект");
+    }
+
+    #[test]
+    fn test_split_by_depth_d1() {
+        let wiki = parse(&fixture_payload()).expect("parse");
+        let files = split_by_depth(&wiki, 1);
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path.to_str().unwrap(), "Example_Overview.md");
+    }
+
+    #[test]
+    fn test_split_by_depth_d2() {
+        let wiki = parse(&fixture_payload()).expect("parse");
+        let files = split_by_depth(&wiki, 2);
+        assert_eq!(files.len(), 2);
+        assert_eq!(files[0].path.to_str().unwrap(), "README.md");
+        assert_eq!(files[1].path.to_str().unwrap(), "Section_A.md");
     }
 }
