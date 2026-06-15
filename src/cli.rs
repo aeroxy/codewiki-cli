@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -28,6 +29,12 @@ pub enum Command {
     Read {
         /// Repository name (e.g. facebook/react)
         repo: String,
+        /// Output directory to write split markdown files (defaults to "wiki" if passed without argument)
+        #[arg(short, long, num_args = 0..=1, default_missing_value = "wiki")]
+        out_dir: Option<PathBuf>,
+        /// Depth of splitting headings into files and directories (default: 2)
+        #[arg(short, long, default_value = "2")]
+        depth: usize,
     },
 }
 
@@ -35,6 +42,7 @@ pub enum Command {
 mod tests {
     use super::{Cli, Command};
     use clap::Parser;
+    use std::path::PathBuf;
 
     #[test]
     fn parses_ask_command() {
@@ -64,7 +72,47 @@ mod tests {
         let cli = Cli::try_parse_from(["codewiki", "read", "facebook/react"])
             .expect("read command should parse");
         match cli.command {
-            Command::Read { repo } => assert_eq!(repo, "facebook/react"),
+            Command::Read { repo, out_dir, depth } => {
+                assert_eq!(repo, "facebook/react");
+                assert_eq!(out_dir, None);
+                assert_eq!(depth, 2);
+            }
+            _ => panic!("expected read command"),
+        }
+
+        let cli_with_flag = Cli::try_parse_from(["codewiki", "read", "facebook/react", "-o"])
+            .expect("read command with flag should parse");
+        match cli_with_flag.command {
+            Command::Read { repo, out_dir, depth } => {
+                assert_eq!(repo, "facebook/react");
+                assert_eq!(out_dir, Some(PathBuf::from("wiki")));
+                assert_eq!(depth, 2);
+            }
+            _ => panic!("expected read command with flag"),
+        }
+
+        let cli_with_custom = Cli::try_parse_from(["codewiki", "read", "facebook/react", "-o", "custom_dir"])
+            .expect("read command with custom dir should parse");
+        match cli_with_custom.command {
+            Command::Read { repo, out_dir, depth } => {
+                assert_eq!(repo, "facebook/react");
+                assert_eq!(out_dir, Some(PathBuf::from("custom_dir")));
+                assert_eq!(depth, 2);
+            }
+            _ => panic!("expected read command with custom dir"),
+        }
+    }
+
+    #[test]
+    fn parses_read_command_with_depth() {
+        let cli = Cli::try_parse_from(["codewiki", "read", "facebook/react", "-d", "3"])
+            .expect("read command should parse");
+        match cli.command {
+            Command::Read { repo, out_dir, depth } => {
+                assert_eq!(repo, "facebook/react");
+                assert_eq!(out_dir, None);
+                assert_eq!(depth, 3);
+            }
             _ => panic!("expected read command"),
         }
     }

@@ -23,11 +23,21 @@ cargo install codewiki-cli
 
 The crate is `codewiki-cli`; the binary it installs is `codewiki`.
 
+### Building with Docker
+
+To cross-compile release binaries locally without setting up native target toolchains:
+
+```bash
+docker build --file .\Dockerfile.build --output "type=local,dest=target" .
+```
+
+This outputs built binaries (e.g. for Linux/Windows) to the local `./target` directory.
+
 ## Usage
 
 ```bash
 codewiki structure facebook/react           # list section titles
-codewiki read facebook/react                # full wiki as Markdown
+codewiki read facebook/react                # full wiki as Markdown to stdout
 codewiki ask facebook/react "How does useEffect work?"
 ```
 
@@ -36,6 +46,21 @@ Pipe the output into your agent of choice:
 ```bash
 codewiki read ast-grep/ast-grep | claude -p "Summarise the rule engine"
 ```
+
+### Splitting into multiple files
+
+By default, `read` prints everything as a single combined document. To save the wiki locally as a structured hierarchy of files (perfect for Obsidian vaults or indexing in local RAG vector stores):
+
+```bash
+codewiki read facebook/react -o              # split into files inside "wiki/" (default)
+codewiki read facebook/react -o docs -d 3    # split up to depth 3, write to "docs/"
+```
+
+* **`-o, --out-dir [DIR]`**: Enables writing to a directory instead of stdout. If no path is provided, it defaults to `wiki`.
+* **`-d, --depth <DEPTH>`**: The heading level boundary to split on. Defaults to `2`.
+  * `-d 1`: Combines everything into a single file named after the root header.
+  * `-d 2` (default when `-o` is present): Splits at level-2 headings (`##`) into flat `.md` files. Subsections (`###`, etc.) are appended to their parent file.
+  * `-d 3`: Splits at level-2 headings (`##`) into folders, and level-3 headings (`###`) into separate `.md` files within them.
 
 ## How it works
 
@@ -54,7 +79,7 @@ TLS certificate verification is **disabled by default**. `codewiki` is built to 
 
 ## Output format
 
-Every command prints a header line followed by the result:
+When printing to stdout, every command prints a header line followed by the result:
 
 ```
 ## CodeWiki: <owner>/<repo> (<command>)

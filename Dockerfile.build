@@ -1,0 +1,34 @@
+FROM rust:slim-bookworm AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc-mingw-w64-x86-64 \
+    musl-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY rust-toolchain.toml ./
+RUN rustup target add \
+    x86_64-unknown-linux-musl \
+    x86_64-pc-windows-gnu
+
+ENV CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+
+WORKDIR /src
+COPY Cargo.toml Cargo.lock ./
+
+RUN mkdir src && echo 'fn main() {}' > src/main.rs \
+    && cargo build --release --target x86_64-unknown-linux-musl \
+    && cargo build --release --target x86_64-pc-windows-gnu \
+    && rm -f target/x86_64-unknown-linux-musl/release/deps/codewiki* \
+    && rm -f target/x86_64-pc-windows-gnu/release/deps/codewiki* \
+    && rm src/main.rs
+
+COPY . .
+
+RUN cargo test --target x86_64-unknown-linux-musl
+
+RUN cargo build --release --target x86_64-unknown-linux-musl \
+    && cargo build --release --target x86_64-pc-windows-gnu
+
+FROM scratch AS export
+COPY --from=builder /src/target/x86_64-unknown-linux-musl/release/codewiki   /linux/codewiki
+COPY --from=builder /src/target/x86_64-pc-windows-gnu/release/codewiki.exe   /windows/codewiki.exe
